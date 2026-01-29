@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-// cron/importar-pedidos.php
+// cron/actualizar-pedidos.php
+// Igual que importar-pedidos.php, pero ACTUALIZA los registros existentes
+// cuando encuentra el mismo "reference" en la BD (tabla his_envios).
 
 require_once __DIR__ . '/../services/bd.php';
 require_once __DIR__ . '/../services/env.php';
@@ -72,7 +74,14 @@ try {
     $orders = $json['orders'] ?? [];
     if (!is_array($orders) || count($orders) === 0) {
         $duration = round(microtime(true) - $startedAt, 4);
-        echo "[OK] Sin pedidos para importar. duration_seconds={$duration}\n";
+        echo json_encode([
+            'status' => 'OK',
+            'message' => 'Sin pedidos para actualizar',
+            'url' => $jsonUrl,
+            'updated' => 0,
+            'skipped_not_found' => 0,
+            'duration_seconds' => (float) $duration,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit(0);
     }
 
@@ -88,14 +97,21 @@ try {
 
     if (count($refs) === 0) {
         $duration = round(microtime(true) - $startedAt, 4);
-        echo "[OK] No hay references válidas en el JSON. duration_seconds={$duration}\n";
+        echo json_encode([
+            'status' => 'OK',
+            'message' => 'No hay references válidas en el JSON',
+            'url' => $jsonUrl,
+            'updated' => 0,
+            'skipped_not_found' => 0,
+            'duration_seconds' => (float) $duration,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit(0);
     }
 
     // 3) Conexión BD
     $pdo = db();
 
-    // 4) Obtener references ya existentes (en chunks para no superar límites de placeholders)
+    // 4) Obtener references existentes
     $existing = [];
     foreach (chunk($refs, 200) as $batch) {
         $placeholders = implode(',', array_fill(0, count($batch), '?'));
@@ -107,17 +123,22 @@ try {
         }
     }
 
-    // 5) Insertar los que faltan
-    $insertSql = "
-        INSERT INTO his_envios
-            (reference, canal, date_prestashop, cod_pais, poblacion, cp, importe_total_con_iva)
-        VALUES
-            (:reference, :canal, :date_prestashop, :cod_pais, :poblacion, :cp, :importe_total_con_iva)
+    // 5) Actualizar los que EXISTEN (si no existe, se salta)
+    $updateSql = "
+        UPDATE his_envios
+        SET
+            canal = :canal,
+            date_prestashop = :date_prestashop,
+            cod_pais = :cod_pais,
+            poblacion = :poblacion,
+            cp = :cp,
+            importe_total_con_iva = :importe_total_con_iva
+        WHERE reference = :reference
     ";
-    $ins = $pdo->prepare($insertSql);
+    $upd = $pdo->prepare($updateSql);
 
-    $inserted = 0;
-    $skipped = 0;
+    $updated = 0;
+    $skippedNotFound = 0;
 
     $pdo->beginTransaction();
 
@@ -127,9 +148,9 @@ try {
             continue;
         }
 
-        // si ya existe, saltar
-        if (isset($existing[$reference])) {
-            $skipped++;
+        // si NO existe, saltar (solo actualiza)
+        if (!isset($existing[$reference])) {
+            $skippedNotFound++;
             continue;
         }
 
@@ -142,7 +163,7 @@ try {
 
         $importe = $o['total_paid_tax_incl'] ?? null;
 
-        $ins->execute([
+        $upd->execute([
             ':reference' => $reference,
             ':canal' => 'ORION',
             ':date_prestashop' => is_string($dateAdd) ? $dateAdd : null,
@@ -152,8 +173,7 @@ try {
             ':importe_total_con_iva' => is_numeric($importe) ? (float)$importe : null,
         ]);
 
-        $existing[$reference] = true; // evita duplicados dentro de la misma ejecución
-        $inserted++;
+        $updated++;
     }
 
     $pdo->commit();
@@ -162,12 +182,12 @@ try {
 
     echo json_encode([
         'status' => 'OK',
-        'message' => 'Importación completada',
+        'message' => 'Actualización completada',
         'url' => $jsonUrl,
-        'inserted' => (int) $inserted,
-        'skipped_existing' => (int) $skipped,
+        'updated' => (int) $updated,
+        'skipped_not_found' => (int) $skippedNotFound,
         'duration_seconds' => (float) $duration,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit(0);
 
 } catch (Throwable $e) {
