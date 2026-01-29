@@ -19,6 +19,7 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
     // Helpers simples
     $contains = static function (string $haystack, array $needles): bool {
         foreach ($needles as $n) {
+            $n = mb_strtolower(trim((string)$n));
             if ($n !== '' && mb_strpos($haystack, $n) !== false) return true;
         }
         return false;
@@ -36,6 +37,11 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
 
         case $contains($pay, ['Waadby Payment']):
             $marketplace = 'Amazon';
+            $tipo = 'Estandar';
+            break;
+
+        case $contains($pay, ['Makro']):
+            $marketplace = 'Makro';
             $tipo = 'Estandar';
             break;
 
@@ -61,6 +67,11 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
 
         case $contains($pay, ['Worten']):
             $marketplace = 'Worten';
+            $tipo = 'Estandar';
+            break;
+
+        case $contains($pay, ['PayPal']):
+            $marketplace = 'O91';
             $tipo = 'Estandar';
             break;
 

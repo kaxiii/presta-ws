@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../services/bd.php';
 require_once __DIR__ . '/../services/env.php';
+require_once __DIR__ . '/../functions/marketplace.php';
 
 date_default_timezone_set('Europe/Madrid');
 
@@ -110,9 +111,9 @@ try {
     // 5) Insertar los que faltan
     $insertSql = "
         INSERT INTO his_envios
-            (reference, canal, date_prestashop, cod_pais, poblacion, cp, importe_total_con_iva)
+            (reference, canal, date_prestashop, cod_pais, poblacion, cp, importe_total_con_iva, marketplace, marketplace_tipo)
         VALUES
-            (:reference, :canal, :date_prestashop, :cod_pais, :poblacion, :cp, :importe_total_con_iva)
+            (:reference, :canal, :date_prestashop, :cod_pais, :poblacion, :cp, :importe_total_con_iva, :marketplace, :marketplace_tipo)
     ";
     $ins = $pdo->prepare($insertSql);
 
@@ -142,6 +143,23 @@ try {
 
         $importe = $o['total_paid_tax_incl'] ?? null;
 
+        // Marketplace / tipo (viene de functions/marketplace.php)
+        $stateName = $o['current_state_name']
+            ?? $o['state_name']
+            ?? $o['current_state']
+            ?? $o['order_state']
+            ?? null;
+
+        $payment = $o['payment']
+            ?? $o['payment_method']
+            ?? $o['payment_module']
+            ?? null;
+
+        [$marketplace, $marketplaceTipo] = detectarMarketplaceYTipo(
+            is_string($stateName) ? $stateName : null,
+            is_string($payment) ? $payment : null
+        );
+
         $ins->execute([
             ':reference' => $reference,
             ':canal' => 'ORION',
@@ -150,6 +168,8 @@ try {
             ':poblacion' => is_string($poblacion) ? $poblacion : null,
             ':cp' => is_string($cp) ? $cp : null,
             ':importe_total_con_iva' => is_numeric($importe) ? (float)$importe : null,
+            ':marketplace' => is_string($marketplace) ? $marketplace : null,
+            ':marketplace_tipo' => is_string($marketplaceTipo) ? $marketplaceTipo : null,
         ]);
 
         $existing[$reference] = true; // evita duplicados dentro de la misma ejecución

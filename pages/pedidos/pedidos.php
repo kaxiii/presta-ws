@@ -166,8 +166,8 @@ $generatedAt = isset($payload['generated_at']) ? (string)$payload['generated_at'
 
     <form method="get" style="margin-left:auto; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
       <div>
-        <div class="muted" style="margin-bottom:6px;">Buscar (reference / pvn / carga)</div>
-        <input type="text" name="q" value="<?= h($q) ?>" placeholder="Ej: OR-123 / PVN / CARGA...">
+        <!-- <div class="muted" style="margin-bottom:6px;">Buscar (OR / PVN / Carga)</div> -->
+        <input type="text" name="q" value="<?= h($q) ?>" placeholder="Buscar (OR / PVN / Carga)">
       </div>
 
       <div>

@@ -1,20 +1,22 @@
 {
     "visible": [
+        "id",
         "reference",
         "pvn",
         "carga",
-        "date_prestashop",
-        "cod_pais",
-        "cp",
-        "date_api",
-        "date_carga",
-        "id",
-        "importe_total_con_iva",
+        "canal",
         "marketplace",
-        "peso",
+        "marketplace_tipo",
+        "cod_pais",
         "poblacion",
+        "cp",
+        "importe_total_con_iva",
         "transportista",
-        "volumen"
+        "peso",
+        "volumen",
+        "date_prestashop",
+        "date_carga",
+        "date_api"
     ],
     "labels": {
         "reference": "OR",
@@ -26,7 +28,7 @@
         "after_ship_importe_real": "after_ship_importe_real",
         "after_ship_peso_real": "after_ship_peso_real",
         "bultos": "bultos",
-        "canal": "canal",
+        "canal": "Canal",
         "cod_pais": "País",
         "cp": "CP",
         "date_api": "Date API",
@@ -40,9 +42,9 @@
         "importe_estimado_envio": "importe_estimado_envio",
         "importe_total_con_iva": "Importe T.",
         "marketplace": "Market",
-        "marketplace_tipo": "marketplace_tipo",
+        "marketplace_tipo": "Tipo",
         "pais": "pais",
-        "peso": "Pesopoblacion",
+        "peso": "Peso",
         "poblacion": "Población",
         "provincia": "provincia",
         "tracking": "tracking",
@@ -51,5 +53,5 @@
         "volumen": "Vol.",
         "zona_logistica": "zona_logistica"
     },
-    "updated_at": "2026-01-29 11:50:05"
+    "updated_at": "2026-01-29 14:41:09"
 }
