@@ -1,0 +1,15 @@
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; }
+    .top { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+    .card { border:1px solid #ddd; border-radius:10px; padding:14px; background:#fff; }
+    .muted { color:#666; font-size: 13px; }
+    input[type="text"] { padding:10px 12px; min-width: 280px; border:1px solid #ccc; border-radius:8px; }
+    select { padding:10px 12px; border:1px solid #ccc; border-radius:8px; }
+    button { padding:10px 14px; border:0; border-radius:8px; cursor:pointer; background:#111; color:#fff; }
+    table { width:100%; border-collapse: collapse; margin-top: 14px; }
+    th, td { border-bottom:1px solid #eee; padding:10px; vertical-align: top; font-size: 13px; }
+    th { text-align:left; position: sticky; top: 0; background: #fafafa; z-index: 1; }
+    .pager { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top: 14px; }
+    .pager a, .pager span { padding:8px 10px; border:1px solid #ddd; border-radius:8px; text-decoration:none; color:#111; }
+    .pager .current { background:#111; color:#fff; border-color:#111; }
+    .nowrap { white-space: nowrap; }
+    .xscroll { overflow:auto; border:1px solid #eee; border-radius:10px; }
