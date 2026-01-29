@@ -59,7 +59,7 @@ try {
     $envPath = dirname(__DIR__) . '/.env';
     $vars = loadEnvFile($envPath);
 
-    $defaultUrl = 'http://localhost/presta-ws/pages/pedidos/pedidos.php?limit=10';
+    $defaultUrl = 'http://localhost/presta-ws/pages/pedidos/json-pedidos-ps.php?limit=10';
     $jsonUrl = (string) env($vars, 'PEDIDOS_JSON_URL', $defaultUrl);
 
     // 1) Obtener pedidos desde el JSON
