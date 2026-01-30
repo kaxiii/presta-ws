@@ -30,13 +30,17 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
 
     // Marketplace (por payment y/o por texto en estado)
     switch (true) {
-        case $contains($state, ['Amazon Prime', 'Prime']):
-            $marketplace = 'Amazon';
-            $tipo = 'PRIME';
-            break;
-
         case $contains($pay, ['Waadby Payment']):
             $marketplace = 'Amazon';
+            if (mb_strpos($state, 'prime') !== false) {
+                $tipo = 'PRIME';
+            } else {
+                $tipo = 'Estandar';
+            }
+            break;
+
+        case $contains($pay, ['LeroyMerlin']):
+            $marketplace = 'Leroy Merlin';
             $tipo = 'Estandar';
             break;
 
@@ -60,18 +64,23 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
             $tipo = 'Estandar';
             break;
 
-        case $contains($pay, ['LeroyMerlin']):
-            $marketplace = 'Leroy Merlin';
-            $tipo = 'Estandar';
-            break;
-
         case $contains($pay, ['Worten']):
             $marketplace = 'Worten';
             $tipo = 'Estandar';
             break;
 
-        case $contains($pay, ['PayPal']):
+        case $contains($pay, ['cdiscount']):
+            $marketplace = 'Cdiscount';
+            $tipo = 'Estandar';
+            break;
+
+        case $contains($pay, ['PayPal', 'Bizum', 'Redsys', 'transferencia']):
             $marketplace = 'O91';
+            $tipo = 'Estandar';
+            break;
+
+        case $contains($pay, ['muestras']):
+            $marketplace = 'Muestras';
             $tipo = 'Estandar';
             break;
 

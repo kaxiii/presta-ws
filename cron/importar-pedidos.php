@@ -120,6 +120,8 @@ try {
     $inserted = 0;
     $skipped = 0;
 
+    $insertedOrders = [];
+
     $pdo->beginTransaction();
 
     foreach ($orders as $o) {
@@ -146,7 +148,7 @@ try {
         // Marketplace / tipo (viene de functions/marketplace.php)
         $stateName = $o['current_state_name']
             ?? $o['state_name']
-            ?? $o['current_state']
+            ?? $o['current_state']['name']
             ?? $o['order_state']
             ?? null;
 
@@ -172,6 +174,8 @@ try {
             ':marketplace_tipo' => is_string($marketplaceTipo) ? $marketplaceTipo : null,
         ]);
 
+        $insertedOrders[] = $o;
+
         $existing[$reference] = true; // evita duplicados dentro de la misma ejecución
         $inserted++;
     }
@@ -187,7 +191,9 @@ try {
         'inserted' => (int) $inserted,
         'skipped_existing' => (int) $skipped,
         'duration_seconds' => (float) $duration,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        'orders_count' => is_array($orders) ? count($orders) : 0,
+        'orders_obtained' => $insertedOrders,  
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit(0);
 
 } catch (Throwable $e) {
