@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// cron/importar-pedidos.php
+// cron/importar-pedidos.php (versión SIN cURL: usa file_get_contents)
 
 require_once __DIR__ . '/../services/bd.php';
 require_once __DIR__ . '/../services/env.php';
@@ -13,32 +13,77 @@ $startedAt = microtime(true);
 
 function httpGetJson(string $url, int $timeoutSeconds = 30): array
 {
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => $timeoutSeconds,
-        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    $headers = [
+        'Accept: application/json',
+        'User-Agent: historial-import/1.0',
+        'Connection: close',
+    ];
+
+    $context = stream_context_create([
+        'http' => [
+            'method'          => 'GET',
+            'timeout'         => $timeoutSeconds,
+            'ignore_errors'   => true,   // leer body aunque sea 4xx/5xx
+            'follow_location' => 1,      // seguir redirects si el wrapper lo soporta
+            'max_redirects'   => 5,
+            'header'          => implode("\r\n", $headers) . "\r\n",
+        ],
+        'ssl' => [
+            'verify_peer'      => true,
+            'verify_peer_name' => true,
+        ],
     ]);
 
-    $body = curl_exec($ch);
-    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err  = curl_error($ch);
-    curl_close($ch);
-
+    $body = @file_get_contents($url, false, $context);
     if ($body === false) {
-        throw new RuntimeException("Error cURL al pedir JSON: $err");
-    }
-    if ($http >= 400) {
-        throw new RuntimeException("HTTP $http al pedir JSON. Respuesta: " . mb_substr((string)$body, 0, 2000));
+        $err = error_get_last()['message'] ?? 'desconocido';
+        throw new RuntimeException("Error al pedir URL (file_get_contents): $err. URL: $url");
     }
 
-    $data = json_decode((string)$body, true);
+    // $http_response_header existe en este scope tras file_get_contents
+    $respHeaders = $http_response_header ?? [];
+    $statusLine = $respHeaders[0] ?? '';
+    $httpCode = 0;
+    if (preg_match('~\s(\d{3})\s~', $statusLine, $m)) {
+        $httpCode = (int)$m[1];
+    }
+
+    $contentType = '';
+    foreach ($respHeaders as $h) {
+        if (stripos($h, 'Content-Type:') === 0) {
+            $contentType = trim(substr($h, strlen('Content-Type:')));
+            break;
+        }
+    }
+
+    // Si está vacío, ya es una pista fuerte
+    if (trim($body) === '') {
+        throw new RuntimeException(
+            "Respuesta vacía. HTTP=$httpCode Content-Type=$contentType URL=$url Headers=" .
+            json_encode($respHeaders, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+        );
+    }
+
+    // Si devuelve HTML u otro tipo, lo mostramos (recortado) para ver qué es
+    if ($contentType !== '' && stripos($contentType, 'application/json') === false) {
+        throw new RuntimeException(
+            "No parece JSON. HTTP=$httpCode Content-Type=$contentType URL=$url " .
+            "Body: " . mb_substr($body, 0, 800) .
+            " Headers=" . json_encode($respHeaders, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+        );
+    }
+
+    $data = json_decode($body, true);
     if (!is_array($data)) {
-        throw new RuntimeException("JSON inválido. Body: " . mb_substr((string)$body, 0, 2000));
+        throw new RuntimeException(
+            "JSON inválido. HTTP=$httpCode Content-Type=$contentType URL=$url " .
+            "Body: " . mb_substr($body, 0, 800)
+        );
     }
 
     return $data;
 }
+
 
 function chunk(array $arr, int $size): array
 {
@@ -56,16 +101,17 @@ function chunk(array $arr, int $size): array
 }
 
 try {
-    // URL del endpoint JSON (configurable por .env)
-    $envPath = dirname(__DIR__) . '/.env';
-
-    if (!is_file($envPath) || !is_readable($envPath)) {
-        throw new RuntimeException("No puedo leer .env en: {$envPath}");
+    // (Opcional) comprobar allow_url_fopen para dar un error claro
+    $allowUrlFopen = ini_get('allow_url_fopen');
+    if ($allowUrlFopen !== '1' && strtolower((string)$allowUrlFopen) !== 'on') {
+        throw new RuntimeException("allow_url_fopen está desactivado en este PHP. Actívalo o instala php-curl.");
     }
 
+    // URL del endpoint JSON (configurable por .env)
+    $envPath = dirname(__DIR__) . '/.env';
     $vars = loadEnvFile($envPath);
 
-    $defaultUrl = 'http://localhost/presta-ws/pages/pedidos/json-pedidos-ps.php?limit=10';
+    $defaultUrl = 'http://localhost/presta-ws/pages/pedidos/json-pedidos-ps-fopen.php?limit=10';
     $jsonUrl = (string) env($vars, 'PEDIDOS_JSON_URL', $defaultUrl);
 
     // 1) Obtener pedidos desde el JSON
@@ -124,7 +170,6 @@ try {
 
     $inserted = 0;
     $skipped = 0;
-
     $insertedOrders = [];
 
     $pdo->beginTransaction();
@@ -150,10 +195,10 @@ try {
 
         $importe = $o['total_paid_tax_incl'] ?? null;
 
-        // Marketplace / tipo (viene de functions/marketplace.php)
+        // Marketplace / tipo
         $stateName = $o['current_state_name']
             ?? $o['state_name']
-            ?? $o['current_state']['name']
+            ?? ($o['current_state']['name'] ?? null)
             ?? $o['order_state']
             ?? null;
 
@@ -197,7 +242,7 @@ try {
         'skipped_existing' => (int) $skipped,
         'duration_seconds' => (float) $duration,
         'orders_count' => is_array($orders) ? count($orders) : 0,
-        'orders_obtained' => $insertedOrders,  
+        'orders_obtained' => $insertedOrders,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit(0);
 
