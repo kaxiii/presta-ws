@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+include '../../functions/actualizar-json-bd.php';  
+
 // /pages/pedidos/pedidos.php
 // Lee /data/pedidos-bd.json y muestra pedidos paginados + búsqueda por reference, pvn o carga.
 // Lee configuración de columnas desde /pages/pedidos/pedidos-columns.json
@@ -38,6 +40,45 @@ if (!is_array($payload) || !isset($payload['data']) || !is_array($payload['data'
 
 $data = $payload['data'];
 $totalAll = count($data);
+
+
+// ==================================================
+// Comprobar antigüedad: generated_at y/o filemtime
+// ==================================================
+$tz = new DateTimeZone('Europe/Madrid');
+$nowTs = time();
+
+// Fecha del archivo pedidos-bd.json
+$fileMtime = @filemtime($jsonFile);
+$fileTs = $fileMtime ? (int)$fileMtime : 0;
+
+// Fecha del campo generated_at (si existe)
+$generatedAtStr = isset($payload['generated_at']) ? (string)$payload['generated_at'] : '';
+$generatedTs = 0;
+
+if ($generatedAtStr !== '') {
+    $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $generatedAtStr, $tz);
+    if ($dt instanceof DateTimeImmutable) {
+        $generatedTs = $dt->getTimestamp();
+    }
+}
+
+// Elegimos una referencia de fecha:
+// - Si generated_at es válido, manda.
+// - Si no, usamos filemtime.
+$refTs = $generatedTs > 0 ? $generatedTs : $fileTs;
+
+// Si no hay ninguna fecha fiable, lo marcamos como stale.
+$isStale = ($refTs <= 0) ? true : (($nowTs - $refTs) > 300); // 5 min = 300s
+
+// (Opcional) Motivo / info para pintar en pantalla
+$staleSeconds = ($refTs > 0) ? ($nowTs - $refTs) : null;
+
+if($isStale) {
+  actualizarJsonBd(); // actualizar el JSON si es stale
+}
+
+
 
 // Detectar columnas + filtrar
 $filtered = [];
