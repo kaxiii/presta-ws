@@ -3,44 +3,9 @@ declare(strict_types=1);
 
 include '../../functions/actualizar-json-bd.php';  
 
-// /pages/pedidos/pedidos.php
-// Lee /data/pedidos-bd.json y muestra pedidos paginados + búsqueda por reference, pvn o carga.
-// Lee configuración de columnas desde /pages/pedidos/pedidos-columns.json
-
-date_default_timezone_set('Europe/Madrid');
-
 $root = dirname(__DIR__, 2); // .../presta-ws
 $jsonFile = $root . '/data/pedidos-bd.json';
 $configFile = __DIR__ . '/pedidos-columns.json';
-
-function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
-
-$q = trim((string)($_GET['q'] ?? ''));
-$page = (int)($_GET['page'] ?? 1);
-if ($page < 1) $page = 1;
-
-$perPage = (int)($_GET['per_page'] ?? 50);
-if ($perPage < 10) $perPage = 10;
-if ($perPage > 200) $perPage = 200;
-
-// Leer JSON
-$raw = @file_get_contents($jsonFile);
-if ($raw === false) {
-    http_response_code(500);
-    echo "<h2>Error</h2><p>No se puede leer el archivo JSON: " . h($jsonFile) . "</p>";
-    exit;
-}
-
-$payload = json_decode($raw, true);
-if (!is_array($payload) || !isset($payload['data']) || !is_array($payload['data'])) {
-    http_response_code(500);
-    echo "<h2>Error</h2><p>JSON inválido o sin campo <code>data</code>.</p>";
-    exit;
-}
-
-$data = $payload['data'];
-$totalAll = count($data);
-
 
 // ==================================================
 // Comprobar antigüedad: generated_at y/o filemtime
@@ -78,6 +43,43 @@ if($isStale) {
   actualizarJsonBd(); // actualizar el JSON si es stale
 }
 
+
+
+// /pages/pedidos/pedidos.php
+// Lee /data/pedidos-bd.json y muestra pedidos paginados + búsqueda por reference, pvn o carga.
+// Lee configuración de columnas desde /pages/pedidos/pedidos-columns.json
+
+date_default_timezone_set('Europe/Madrid');
+
+
+
+function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+
+$q = trim((string)($_GET['q'] ?? ''));
+$page = (int)($_GET['page'] ?? 1);
+if ($page < 1) $page = 1;
+
+$perPage = (int)($_GET['per_page'] ?? 50);
+if ($perPage < 10) $perPage = 10;
+if ($perPage > 200) $perPage = 200;
+
+// Leer JSON
+$raw = @file_get_contents($jsonFile);
+if ($raw === false) {
+    http_response_code(500);
+    echo "<h2>Error</h2><p>No se puede leer el archivo JSON: " . h($jsonFile) . "</p>";
+    exit;
+}
+
+$payload = json_decode($raw, true);
+if (!is_array($payload) || !isset($payload['data']) || !is_array($payload['data'])) {
+    http_response_code(500);
+    echo "<h2>Error</h2><p>JSON inválido o sin campo <code>data</code>.</p>";
+    exit;
+}
+
+$data = $payload['data'];
+$totalAll = count($data);
 
 
 // Detectar columnas + filtrar

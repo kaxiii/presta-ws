@@ -19,11 +19,7 @@ try {
     $envPath = $root . '/.env';
     $vars = loadEnvFile($envPath);
 
-    // Config desde .env (con defaults)
-    // Ejemplo .env:
-    // PEDIDOS_MESES=3
-    // PEDIDOS_TABLE=his_envios
-    // PEDIDOS_DATE_FIELD=date_add
+ 
     $months = (int) env($vars, 'PEDIDOS_MESES', '3');
     if ($months <= 0) $months = 3;
 
