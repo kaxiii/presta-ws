@@ -204,6 +204,7 @@ foreach ($entries as $e) {
             <th class="expander" style="width:44px;"></th>
 
             <th>Estado</th>
+            <th>Hora</th>
             <th>URL</th>
             <th class="right">Insertados</th>
             <th class="right">Saltados</th>
@@ -212,9 +213,12 @@ foreach ($entries as $e) {
         </tr>
         </thead>
         <tbody>
-        <?php foreach ($entries as $idx => $e): ?>
+        <?php 
+            $N = count($entries);
+            foreach ($entries as $idx => $e): ?>
             <?php
-            $n = $idx + 1;
+            // Arriba el número más grande (mantiene numeración original del log)
+            $n = $N - $idx;
 
             if (!is_array($e) || isset($e['_raw'])) {
                 $raw = is_array($e) ? ($e['_raw'] ?? '') : '';
@@ -239,6 +243,7 @@ foreach ($entries as $e) {
             $skipped = (int)($e['skipped_existing'] ?? 0);
             $ordersCount = (int)($e['orders_count'] ?? 0);
             $dur = (float)($e['duration_seconds'] ?? 0);
+            $executed_at = (string)($e['executed_at'] ?? '');
 
             $obtained = $e['orders_obtained'] ?? [];
             $hasOrders = is_array($obtained) && count($obtained) > 0;
@@ -303,6 +308,10 @@ foreach ($entries as $e) {
                         <?= h($status ?: 'N/A') ?>
                     </div>
                     <div class="small muted"><?= h($msg) ?></div>
+                </td>
+
+                <td>
+                    <?= h($executed_at) ?>
                 </td>
 
                 <td class="small">

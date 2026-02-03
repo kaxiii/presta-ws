@@ -237,6 +237,7 @@ try {
     echo json_encode([
         'status' => 'OK',
         'message' => 'Importación completada',
+        'hora' => date('Y-m-d H:i:s'),
         'url' => $jsonUrl,
         'inserted' => (int) $inserted,
         'skipped_existing' => (int) $skipped,
