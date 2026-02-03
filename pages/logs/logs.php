@@ -13,6 +13,9 @@ $LOG_DIR = '../../cron/logs';
 $today = date('Y-m-d');
 $logFile = $LOG_DIR . "/cron-master-historial-{$today}.log";
 
+$errors = [];
+$entries = [];
+
 /**
  * Extrae múltiples objetos JSON concatenados (sin saltos de línea)
  * usando un parser simple de llaves que respeta strings.
@@ -32,7 +35,7 @@ function parseConcatenatedJsonObjects(string $s): array
         $ch = $s[$i];
 
         if ($start === null) {
-            // buscar el inicio del siguiente objeto JSON
+            // buscar el inicio del siguiente objeto
             if ($ch === '{') {
                 $start = $i;
                 $depth = 1;
@@ -42,38 +45,38 @@ function parseConcatenatedJsonObjects(string $s): array
             continue;
         }
 
-        // ya estamos dentro de un objeto JSON empezado en $start
-        if ($inString) {
-            if ($escape) {
-                $escape = false;
-            } elseif ($ch === '\\') {
-                $escape = true;
-            } elseif ($ch === '"') {
-                $inString = false;
-            }
-            continue;
-        }
-
-        // no estamos dentro de string
-        if ($ch === '"') {
-            $inString = true;
+        if ($escape) {
             $escape = false;
             continue;
         }
+
+        if ($ch === '\\' && $inString) {
+            $escape = true;
+            continue;
+        }
+
+        if ($ch === '"') {
+            $inString = !$inString;
+            continue;
+        }
+
+        if ($inString) continue;
 
         if ($ch === '{') {
             $depth++;
         } elseif ($ch === '}') {
             $depth--;
             if ($depth === 0) {
-                $jsonStr = substr($s, $start, $i - $start + 1);
-                $data = json_decode($jsonStr, true);
+                $json = substr($s, $start, $i - $start + 1);
+                $decoded = json_decode($json, true);
 
-                if (is_array($data)) {
-                    $items[] = $data;
+                if (is_array($decoded)) {
+                    $items[] = $decoded;
                 } else {
-                    // si alguna pieza no decodifica, la guardamos como "raw"
-                    $items[] = ['_raw' => $jsonStr, '_decode_error' => json_last_error_msg()];
+                    $items[] = [
+                        '_raw' => $json,
+                        '_decode_error' => json_last_error_msg(),
+                    ];
                 }
 
                 $start = null;
@@ -81,23 +84,32 @@ function parseConcatenatedJsonObjects(string $s): array
         }
     }
 
+    // Si quedó algo sin cerrar
+    if ($start !== null) {
+        $json = substr($s, $start);
+        $items[] = [
+            '_raw' => $json,
+            '_decode_error' => 'Objeto JSON incompleto (sin cierre)',
+        ];
+    }
+
     return $items;
 }
 
 function h(string $s): string
 {
-    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
 
-function num($v, int $dec = 0): string
+function num(float $v, int $dec = 2): string
 {
-    if (!is_numeric($v)) return '-';
-    return number_format((float)$v, $dec, ',', '.');
+    // Formato español: coma decimal
+    return number_format($v, $dec, ',', '.');
 }
 
-$errors = [];
-$entries = [];
-
+/* =========================
+   CARGA LOG
+========================= */
 if (!is_file($logFile)) {
     $errors[] = "No existe el log de hoy: " . $logFile;
 } elseif (!is_readable($logFile)) {
@@ -109,12 +121,21 @@ if (!is_file($logFile)) {
     } else {
         $entries = parseConcatenatedJsonObjects($content);
         if (!$entries) {
-            $errors[] = "No se pudo parsear ningún JSON del log.";
+            $errors[] = "No se pudo parsear el log: " . $logFile;
         }
     }
 }
 
-// Resumen
+/* =========================
+   ORDEN: MÁS RECIENTE PRIMERO
+========================= */
+if ($entries) {
+    $entries = array_reverse($entries);
+}
+
+/* =========================
+   MÉTRICAS
+========================= */
 $totalRuns = 0;
 $totalInserted = 0;
 $totalSkipped = 0;
@@ -145,32 +166,7 @@ foreach ($entries as $e) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Log cron master historial (<?= h($today) ?>)</title>
-    <style>
-        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; color:#111; }
-        .top { display:flex; gap:14px; flex-wrap:wrap; align-items:baseline; }
-        .badge { background:#f2f2f2; padding:6px 10px; border-radius:10px; font-size:14px; }
-        .muted { color:#555; }
-        .err { background:#ffe8e8; border:1px solid #ffb3b3; padding:12px; border-radius:10px; }
-        table { width:100%; border-collapse:collapse; margin-top:14px; }
-        th, td { border-bottom:1px solid #e6e6e6; padding:10px 8px; vertical-align:top; }
-        th { text-align:left; background:#fafafa; position:sticky; top:0; z-index:2; }
-        .ok { color:#1a7f37; font-weight:600; }
-        .warn { color:#9a6700; font-weight:600; }
-        .raw { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; white-space:pre-wrap; }
-        details { border:1px solid #eee; border-radius:10px; padding:8px 10px; background:#fff; }
-        summary { cursor:pointer; user-select:none; list-style:none; }
-        summary::-webkit-details-marker { display:none; }
-        summary .plus {
-            display:inline-block; width:18px; height:18px; line-height:18px; text-align:center;
-            border:1px solid #ccc; border-radius:4px; margin-right:8px; font-weight:700;
-        }
-        details[open] summary .plus { border-color:#999; }
-        .orders { margin-top:10px; }
-        .orders table { margin-top:8px; }
-        .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#f2f2f2; font-size:12px; }
-        .right { text-align:right; }
-        .small { font-size:12px; }
-    </style>
+    <link rel="stylesheet" href="logs.css">
 </head>
 <body>
 
@@ -193,7 +189,7 @@ foreach ($entries as $e) {
         <strong>Error:</strong>
         <ul>
             <?php foreach ($errors as $er): ?>
-                <li><?= h($er) ?></li>
+                <li><?= h((string)$er) ?></li>
             <?php endforeach; ?>
         </ul>
     </div>
@@ -203,13 +199,16 @@ foreach ($entries as $e) {
         <thead>
         <tr>
             <th style="width:50px;">#</th>
+
+            <!-- ✅ 2ª columna: expandir -->
+            <th class="expander" style="width:44px;"></th>
+
             <th>Estado</th>
             <th>URL</th>
             <th class="right">Insertados</th>
             <th class="right">Saltados</th>
             <th class="right">Total pedidos</th>
             <th class="right">Duración</th>
-            <th>Pedidos importados</th>
         </tr>
         </thead>
         <tbody>
@@ -223,14 +222,16 @@ foreach ($entries as $e) {
                 ?>
                 <tr>
                     <td><?= (int)$n ?></td>
+                    <td class="expander"></td>
                     <td class="warn">JSON inválido</td>
-                    <td colspan="6"><span class="pill">decode_error: <?= h((string)$err) ?></span></td>
+                    <td colspan="5"><span class="pill">decode_error: <?= h((string)$err) ?></span></td>
                     <td><pre class="raw"><?= h(mb_substr((string)$raw, 0, 1200)) ?></pre></td>
                 </tr>
                 <?php
                 continue;
             }
 
+            // ✅ Claves reales del log
             $status = (string)($e['status'] ?? '');
             $msg = (string)($e['message'] ?? '');
             $url = (string)($e['url'] ?? '');
@@ -238,33 +239,26 @@ foreach ($entries as $e) {
             $skipped = (int)($e['skipped_existing'] ?? 0);
             $ordersCount = (int)($e['orders_count'] ?? 0);
             $dur = (float)($e['duration_seconds'] ?? 0);
+
             $obtained = $e['orders_obtained'] ?? [];
             $hasOrders = is_array($obtained) && count($obtained) > 0;
             ?>
             <tr>
                 <td><?= (int)$n ?></td>
-                <td>
-                    <div class="<?= $status === 'OK' ? 'ok' : 'warn' ?>">
-                        <?= h($status ?: 'N/A') ?>
-                    </div>
-                    <div class="small muted"><?= h($msg) ?></div>
-                </td>
-                <td class="small">
-                    <span class="raw"><?= h($url) ?></span>
-                </td>
-                <td class="right"><strong><?= (int)$inserted ?></strong></td>
-                <td class="right"><?= (int)$skipped ?></td>
-                <td class="right"><?= (int)$ordersCount ?></td>
-                <td class="right"><?= num($dur, 2) ?> s</td>
-                <td>
-                    <?php if ($inserted > 0 && $hasOrders): ?>
-                        <details>
-                            <summary>
+
+                <!-- ✅ Botón + en 2ª columna -->
+                <td class="expander">
+                    <?php if ($hasOrders): ?>
+                        <details class="expander-details">
+                            <summary aria-label="Ver pedidos importados">
                                 <span class="plus">+</span>
-                                Ver <?= (int)count($obtained) ?> pedido(s) importado(s)
                             </summary>
 
                             <div class="orders">
+                                <div class="small muted" style="margin-bottom:8px;">
+                                    Ver <?= (int)count($obtained) ?> pedido(s) importado(s)
+                                </div>
+
                                 <table>
                                     <thead>
                                     <tr>
@@ -289,26 +283,36 @@ foreach ($entries as $e) {
                                         $total = $o['total_paid_tax_incl'] ?? null;
                                         ?>
                                         <tr>
-                                            <td class="raw"><?= h($ref) ?></td>
-                                            <td class="raw"><?= h($date) ?></td>
-                                            <td><?= h($stateName) ?></td>
-                                            <td><?= h($pay) ?></td>
-                                            <td><?= h(trim($iso . ' ' . $cp . ' ' . $city)) ?></td>
-                                            <td class="right"><?= is_numeric($total) ? num((float)$total, 2) : '-' ?></td>
+                                            <td><?= h($ref) ?></td>
+                                            <td class="small"><?= h($date) ?></td>
+                                            <td class="small"><?= h($stateName) ?></td>
+                                            <td class="small"><?= h($pay) ?></td>
+                                            <td class="small"><?= h(trim($iso . ' ' . $cp . ' ' . $city)) ?></td>
+                                            <td class="right"><?= is_numeric($total) ? num((float)$total, 2) : h((string)$total) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
                                     </tbody>
                                 </table>
-
-                                <div class="small muted" style="margin-top:8px;">
-                                    (Se muestran los datos tal como vienen en <code>orders_obtained</code>.)
-                                </div>
                             </div>
                         </details>
-                    <?php else: ?>
-                        <span class="muted">—</span>
                     <?php endif; ?>
                 </td>
+
+                <td>
+                    <div class="<?= $status === 'OK' ? 'ok' : 'warn' ?>">
+                        <?= h($status ?: 'N/A') ?>
+                    </div>
+                    <div class="small muted"><?= h($msg) ?></div>
+                </td>
+
+                <td class="small">
+                    <span class="raw"><?= h($url) ?></span>
+                </td>
+
+                <td class="right"><strong><?= (int)$inserted ?></strong></td>
+                <td class="right"><?= (int)$skipped ?></td>
+                <td class="right"><?= (int)$ordersCount ?></td>
+                <td class="right"><?= num($dur, 2) ?> s</td>
             </tr>
         <?php endforeach; ?>
         </tbody>
