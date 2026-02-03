@@ -13,8 +13,10 @@ return [
   'ManoMano'      => '#75b6ab', 
   'Worten'        => '#E60012', 
   'Makro'         => '#1F4E79', 
+  'Vente-Unique'  => '#FF6F61',
   'Cdiscount'     => '#2E77BB', 
   'Conforama'     => '#ce3037', 
   'BricoDepot'    => '#3d3d3d', 
   'MediaMarkt'    => '#e72828', 
+  'Alcampo'       => '#ff6600',
 ];

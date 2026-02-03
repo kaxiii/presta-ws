@@ -1,0 +1,128 @@
+:root{
+  --gap: 20px;
+  --page-pad: 200px;
+  --pad: 18px;
+  --radius: 50px;
+  --title: #333;
+}
+
+*{ box-sizing: border-box; }
+html, body{ height: 100%; }
+
+body{
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #f4f6f8;
+  color: #111;
+}
+
+.layout{
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Título grande centrado y blanco */
+header{
+  padding: 22px var(--page-pad) 14px;
+}
+h1{
+  margin: 0;
+  text-align: center;
+  font-size: clamp(44px, 6vw, 86px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--title);
+  text-shadow: 0 10px 22px rgba(0,0,0,.25);
+}
+
+/* Grid */
+main{
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+  padding: 0 var(--page-pad) 24px;
+}
+
+/* Panel base */
+.panel{
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;   /* texto arriba */
+  justify-content: center;
+  padding: var(--pad);
+  border-radius: 0;
+  box-shadow: 0 10px 22px rgba(0,0,0,.10);
+}
+
+/* Redondeo SOLO extremos */
+.panel:first-child{
+  border-top-left-radius: var(--radius);
+  border-bottom-left-radius: var(--radius);
+}
+.panel:last-child{
+  border-top-right-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+}
+
+/* Texto letra-por-letra en blanco */
+.vtext{
+  margin-top: 10px;
+  font-weight: 900;
+  font-size: clamp(30px, 4.2vw, 66px);
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  white-space: pre-line;
+  line-height: 1.05;
+  text-align: center;
+  user-select: none;
+  color: rgba(255,255,255,.96);
+  text-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+
+/* Clicable completo */
+.panel a{
+  position:absolute;
+  inset:0;
+  z-index: 2;
+  text-indent:-9999px;
+}
+
+/* Degradados suaves (no chillones) */
+.bg1{ background: linear-gradient(135deg, #1f2a44, #2f4c7a); } /* azul profundo */
+.bg2{ background: linear-gradient(135deg, #2a3b36, #3f6b5e); } /* verde/teal */
+.bg3{ background: linear-gradient(135deg, #3b2a3f, #6a4a6f); } /* morado suave */
+.bg4{ background: linear-gradient(135deg, #3b3330, #6b5a4e); } /* marrón/gris cálido */
+
+/* (Opcional) un brillo suave arriba para que se vea más “pro” */
+.panel::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: radial-gradient(1200px 500px at 20% 10%, rgba(255,255,255,.18), transparent 55%);
+  pointer-events:none;
+}
+
+/* Móvil */
+@media (max-width: 800px){
+  :root{ --page-pad: 18px; }
+
+  main{
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+    padding: 0 var(--page-pad) 18px;
+  }
+
+  .panel{ border-radius: 0; }
+  .panel:first-child{
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+  }
+  .panel:last-child{
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+  }
+}
