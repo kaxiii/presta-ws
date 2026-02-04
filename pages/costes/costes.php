@@ -37,6 +37,34 @@ if ($perPage > 200) $perPage = 200;
 
 $onlySaving = (int)($_GET['only_saving'] ?? 0) === 1;
 
+// excluir Amazon
+$excludeAmazon = (int)($_GET['exclude_amazon'] ?? 0) === 1;
+
+// descarga CSV
+$downloadCsv = (int)($_GET['download_csv'] ?? 0) === 1;
+
+// NUEVO: ordenación
+$sort = (string)($_GET['sort'] ?? '');
+$dir  = strtolower((string)($_GET['dir'] ?? '')); // 'asc' | 'desc' | ''
+
+$SORTABLE = [
+    'reference',          // OR
+    'pvn',
+    'carga',
+    'transportista',
+    'coste',
+    'ahorro',
+    'canal',
+    'market',
+    'pais',
+    'peso',
+    'vol_m3',
+    'bultos',
+];
+
+if (!in_array($sort, $SORTABLE, true)) $sort = '';
+if ($dir !== 'asc' && $dir !== 'desc') $dir = '';
+
 function urlWith(array $overrides): string {
     $params = $_GET;
     foreach ($overrides as $k => $v) {
@@ -45,6 +73,26 @@ function urlWith(array $overrides): string {
     }
     $qs = http_build_query($params);
     return '?' . $qs;
+}
+
+// Helpers para links de orden
+function sortLink(string $col, string $currentSort, string $currentDir): string {
+    // 1) si NO es la col actual => desc
+    // 2) si misma y estaba desc => asc
+    // 3) si misma y estaba asc => quitar orden
+    if ($currentSort !== $col) {
+        return urlWith(['sort' => $col, 'dir' => 'desc', 'page' => 1]);
+    }
+    if ($currentDir === 'desc') {
+        return urlWith(['sort' => $col, 'dir' => 'asc', 'page' => 1]);
+    }
+    return urlWith(['sort' => null, 'dir' => null, 'page' => 1]);
+}
+function sortArrow(string $col, string $currentSort, string $currentDir): string {
+    if ($currentSort !== $col) return '<span class="sort sort-none">↕</span>';
+    if ($currentDir === 'desc') return '<span class="sort sort-desc">▼</span>';
+    if ($currentDir === 'asc')  return '<span class="sort sort-asc">▲</span>';
+    return '<span class="sort sort-none">↕</span>';
 }
 
 // ------------------------------
@@ -136,6 +184,12 @@ function costsForCarrier(array $items, string $selectedCarrier): array {
     }
 
     return ['cheapest' => $cheapest, 'selected' => $selected];
+}
+
+// Helper volumen: asumir que el dato viene en cm3 y convertir a m3
+function cm3ToM3(float $cm3): float {
+    if ($cm3 <= 0) return 0.0;
+    return $cm3 / 1000000.0; // 1 m3 = 1.000.000 cm3
 }
 
 // ------------------------------
@@ -242,6 +296,11 @@ foreach ($groups as $g) {
     $mp = $marketplaceByRef[$ref] ?? '';
     $agg = $orderAggByRef[$ref] ?? null;
 
+    // excluir marketplace Amazon (case-insensitive)
+    if ($excludeAmazon && $mp !== '' && mb_strtolower(trim($mp)) === 'amazon') {
+        continue;
+    }
+
     $assignedCarrier = is_array($agg) ? (string)($agg['transportista'] ?? '') : '';
     if ($assignedCarrier === '') {
         $assignedCarrier = mostCommonString($items, 'nombre_transportista');
@@ -266,12 +325,163 @@ foreach ($groups as $g) {
 
     if ($onlySaving && !($ahorro !== null && $ahorro > 0)) continue;
 
+    // Datos de orden agregados
+    $pvnSort     = is_array($agg) ? (string)($agg['pvn'] ?? '') : '';
+    $cargaSort   = is_array($agg) ? (string)($agg['carga'] ?? '') : '';
+    $canalSort   = is_array($agg) ? (string)($agg['canal'] ?? '') : '';
+    $paisSort    = is_array($agg) ? (string)($agg['cod_pais'] ?? '') : '';
+    $pesoSort    = is_array($agg) ? (float)($agg['peso'] ?? 0.0) : 0.0;
+    $bultosSort  = is_array($agg) ? (float)($agg['bultos'] ?? 0.0) : 0.0;
+
+    // Volumen convertir a m3 (asumiendo origen cm3)
+    $volRaw  = is_array($agg) ? (float)($agg['volumen'] ?? 0.0) : 0.0;
+    $volM3   = cm3ToM3($volRaw);
+
+    // Campos de display
     $g['_mp'] = $mp;
     $g['_assignedCarrier'] = $assignedCarrier;
     $g['_coste'] = $coste;
     $g['_ahorro'] = $ahorro;
 
+    // NUEVO: campos para ordenación (CSV y tabla respetan el orden)
+    $g['_sort_reference']     = $ref;
+    $g['_sort_pvn']           = $pvnSort;
+    $g['_sort_carga']         = $cargaSort;
+    $g['_sort_transportista'] = (string)$assignedCarrier;
+    $g['_sort_coste']         = ($coste !== null) ? (float)$coste : null;
+    $g['_sort_ahorro']        = ($ahorro !== null) ? (float)$ahorro : null;
+    $g['_sort_canal']         = $canalSort;
+    $g['_sort_market']        = (string)$mp;
+    $g['_sort_pais']          = $paisSort;
+    $g['_sort_peso']          = $pesoSort;
+    $g['_sort_vol_m3']        = $volM3;
+    $g['_sort_bultos']        = $bultosSort;
+
     $filtered[] = $g;
+}
+
+// ------------------------------
+// NUEVO: ordenar ANTES de CSV y ANTES de paginar
+// ------------------------------
+if ($sort !== '' && $dir !== '') {
+
+    $map = [
+        'reference'     => '_sort_reference',
+        'pvn'           => '_sort_pvn',
+        'carga'         => '_sort_carga',
+        'transportista' => '_sort_transportista',
+        'coste'         => '_sort_coste',
+        'ahorro'        => '_sort_ahorro',
+        'canal'         => '_sort_canal',
+        'market'        => '_sort_market',
+        'pais'          => '_sort_pais',
+        'peso'          => '_sort_peso',
+        'vol_m3'        => '_sort_vol_m3',
+        'bultos'        => '_sort_bultos',
+    ];
+
+    $field = $map[$sort] ?? null;
+
+    if ($field) {
+        usort($filtered, function ($a, $b) use ($field, $dir) {
+
+            $va = $a[$field] ?? null;
+            $vb = $b[$field] ?? null;
+
+            // Nulos/vacíos al final
+            $aEmpty = ($va === null || $va === '');
+            $bEmpty = ($vb === null || $vb === '');
+            if ($aEmpty && $bEmpty) return 0;
+            if ($aEmpty) return 1;
+            if ($bEmpty) return -1;
+
+            // numérico vs string
+            if (is_numeric($va) && is_numeric($vb)) {
+                $cmp = ((float)$va <=> (float)$vb);
+            } else {
+                $cmp = strnatcasecmp((string)$va, (string)$vb);
+            }
+
+            return ($dir === 'asc') ? $cmp : -$cmp;
+        });
+    }
+}
+
+// ------------------------------
+// Descargar CSV (todos los filtrados) -> RESPETA ORDEN (porque ya está ordenado arriba)
+// ------------------------------
+if ($downloadCsv) {
+    $csvFn = __DIR__ . '/../../functions/descargar-csv.php';
+    if (!is_file($csvFn)) {
+        http_response_code(500);
+        echo "<h2>Error</h2><p>No existe el archivo de funciones: <code>" . h($csvFn) . "</code></p>";
+        exit;
+    }
+    require_once $csvFn;
+
+    if (!function_exists('descargarCsv')) {
+        http_response_code(500);
+        echo "<h2>Error</h2><p>No se encontró la función <code>descargarCsv</code> en: <code>" . h($csvFn) . "</code></p>";
+        exit;
+    }
+
+    $rows = [];
+    foreach ($filtered as $g) {
+        if (!is_array($g)) continue;
+
+        $ref = isset($g['reference']) ? (string)$g['reference'] : '';
+        $agg = $orderAggByRef[$ref] ?? [];
+
+        $mp = (string)($g['_mp'] ?? '');
+        $assignedCarrier = (string)($g['_assignedCarrier'] ?? '');
+        $coste = $g['_coste'] ?? null;
+        $ahorro = $g['_ahorro'] ?? null;
+
+        $pvn     = is_array($agg) ? (string)($agg['pvn'] ?? '') : '';
+        $carga   = is_array($agg) ? (string)($agg['carga'] ?? '') : '';
+        $canal   = is_array($agg) ? (string)($agg['canal'] ?? '') : '';
+        $codPais = is_array($agg) ? (string)($agg['cod_pais'] ?? '') : '';
+
+        $peso    = is_array($agg) ? (float)($agg['peso'] ?? 0.0) : 0.0;
+
+        $volRaw  = is_array($agg) ? (float)($agg['volumen'] ?? 0.0) : 0.0;
+        $volM3   = cm3ToM3($volRaw);
+
+        $bultos  = is_array($agg) ? (float)($agg['bultos'] ?? 0.0) : 0.0;
+
+        $rows[] = [
+            'or' => $ref,
+            'pvn' => $pvn,
+            'carga' => $carga,
+            'transportista' => $assignedCarrier,
+            'coste' => ($coste !== null) ? number_format((float)$coste, 2, '.', '') : '',
+            'ahorro' => ($ahorro !== null) ? number_format((float)$ahorro, 2, '.', '') : '',
+            'canal' => $canal,
+            'market' => $mp,
+            'pais' => $codPais,
+            'peso' => $peso > 0 ? number_format($peso, 3, '.', '') : '',
+            'vol_m3' => $volM3 > 0 ? number_format($volM3, 4, '.', '') : '',
+            'bultos' => $bultos > 0 ? number_format($bultos, 0, '.', '') : '',
+        ];
+    }
+
+    $columns = [
+        'or' => 'OR',
+        'pvn' => 'PVN',
+        'carga' => 'Carga',
+        'transportista' => 'Transportista',
+        'coste' => 'Coste',
+        'ahorro' => 'Ahorro',
+        'canal' => 'Canal',
+        'market' => 'Market',
+        'pais' => 'País',
+        'peso' => 'Peso',
+        'vol_m3' => 'Vol. (m³)',
+        'bultos' => 'Bultos',
+    ];
+
+    $fname = 'costes-envios_' . date('Y-m-d_H-i') . '.csv';
+    descargarCsv($fname, $rows, $columns, ';');
 }
 
 $total = count($filtered);
@@ -288,11 +498,6 @@ $MAIN_COLS = 13; // toggle + OR + PVN + Carga + Transportista + Coste + Ahorro +
 $prev = $page - 1;
 $next = $page + 1;
 
-// Helper volumen: asumir que el dato viene en cm3 y convertir a m3
-function cm3ToM3(float $cm3): float {
-    if ($cm3 <= 0) return 0.0;
-    return $cm3 / 1000000.0; // 1 m3 = 1.000.000 cm3
-}
 ?>
 <!doctype html>
 <html lang="es">
@@ -302,107 +507,64 @@ function cm3ToM3(float $cm3): float {
   <title><?= h($title) ?></title>
 
   <link rel="stylesheet" href="../pedidos/pedidos.css">
+  <link rel="stylesheet" href="costes.css">
 
   <style>
-    .xscroll { overflow:auto; border:1px solid #eee; border-radius:10px; margin-top:14px; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { border-bottom:1px solid #eee; padding:10px; vertical-align: top; font-size: 13px; }
-    th { text-align:left; position: sticky; top: 0; background: #fafafa; z-index: 1; }
-    .muted { color:#666; font-size: 13px; }
-    .card { border:1px solid #ddd; border-radius:10px; padding:14px; background:#fff; }
-    .btn2 { padding:10px 14px; border:1px solid #ddd; border-radius:8px; text-decoration:none; color:#111; background:#fff; }
-    .nowrap { white-space: nowrap; }
-    .num { text-align:right; }
-
-    .toolbar {
-      display:flex;
+    /* Si prefieres, mueve esto a costes.css */
+    .thlink{
+      display:inline-flex;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top: 10px;
+      gap:6px;
+      color:inherit;
+      text-decoration:none;
+      user-select:none;
     }
-    .toolbar-left, .toolbar-right {
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
+    .thlink:hover{ text-decoration:underline; }
+    .sort{
+      font-size: 11px;
+      opacity: .75;
+      line-height: 1;
     }
-    .pager-inline a, .pager-inline span {
-      padding:8px 10px; border:1px solid #ddd; border-radius:8px;
-      text-decoration:none; color:#111; background:#fff;
-    }
-    .pager-inline .current { background:#111; color:#fff; border-color:#111; }
-
-    input[type="text"] { padding:10px 12px; min-width: 260px; border:1px solid #ccc; border-radius:8px; }
-    select { padding:10px 12px; border:1px solid #ccc; border-radius:8px; }
-
-    .saving-box {
-      padding:10px 12px;
-      border:1px solid #ddd;
-      border-radius:10px;
-      background:#fafafa;
-      white-space:nowrap;
-      font-size: 13px;
-    }
-
-    /* Botón expandir: mostrar N en vez de + */
-    .toggle-btn {
-      min-width: 28px;
-      height: 22px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background: #fff;
-      cursor: pointer;
-      font-weight: 700;
-      font-size: 12px;
-      padding: 0 8px;
-      display: inline-block;
-      text-align: center;
-      line-height: 22px;
-      vertical-align: middle;
-      user-select: none;
-      color: #333;
-      white-space: nowrap;
-    }
-    .toggle-btn:hover { background: #f5f5f5; border-color: #999; }
-
-    .details-row { display:none; background:#fafafa; }
-    .details-cell { padding: 12px 10px; }
-    .inner { border:1px solid #eee; border-radius:10px; overflow:auto; background:#fff; }
-    .inner table th { position: sticky; top: 0; background:#fff; }
-
-    .col-toggle { width: 36px; text-align: center; padding-left: 6px; padding-right: 6px; }
-
-    .switch-wrap { display:flex; align-items:center; gap:8px; }
-    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; inset: 0;
-      background: #ddd; transition: .2s; border-radius: 999px;
-    }
-    .slider:before {
-      position: absolute; content: "";
-      height: 18px; width: 18px; left: 3px; top: 3px;
-      background: white; transition: .2s; border-radius: 999px;
-      box-shadow: 0 1px 2px rgba(0,0,0,.15);
-    }
-    .switch input:checked + .slider { background: #111; }
-    .switch input:checked + .slider:before { transform: translateX(20px); }
-
-    .btn-search { padding:10px 14px; border:0; border-radius:8px; cursor:pointer; background:#111; color:#fff; }
+    .sort-none{ opacity: .35; }
+    .sort-asc, .sort-desc{ opacity: .9; }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <div style="display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;">
+
+  <!-- Cabecera: título izquierda, switches + CSV derecha -->
+  <div class="headerbar">
     <div>
       <h2 style="margin:0 0 4px 0;"><?= h($title) ?></h2>
-      <div class="muted">
-        Fuente: <code>leerJsonBd('costes')</code> y <code>leerJsonBd('pedidos')</code>
-        · Total JSON: <?= (int)$totalAll ?> · Resultados: <?= (int)$total ?>
+    </div>
+
+    <div class="headerbar-right">
+      <div class="switch-wrap">
+        <span class="muted">Solo con ahorro</span>
+        <label class="switch" title="Mostrar solo referencias con ahorro disponible">
+          <input type="checkbox"
+                 name="only_saving"
+                 value="1"
+                 form="filtersForm"
+                 <?= $onlySaving ? 'checked' : '' ?>>
+          <span class="slider"></span>
+        </label>
       </div>
+
+      <div class="switch-wrap">
+        <span class="muted">Excluir Amazon</span>
+        <label class="switch" title="Ignorar pedidos cuyo marketplace sea Amazon">
+          <input type="checkbox"
+                 name="exclude_amazon"
+                 value="1"
+                 form="filtersForm"
+                 <?= $excludeAmazon ? 'checked' : '' ?>>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <a class="btn2" href="<?= h(urlWith(['download_csv'=>1,'page'=>1])) ?>">Descargar CSV</a>
     </div>
   </div>
 
@@ -419,13 +581,9 @@ function cm3ToM3(float $cm3): float {
       <form method="get" id="filtersForm" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0;">
         <input type="hidden" name="page" value="<?= (int)$page ?>">
 
-        <div class="switch-wrap">
-          <span class="muted">Solo con ahorro</span>
-          <label class="switch" title="Mostrar solo referencias con ahorro disponible">
-            <input type="checkbox" name="only_saving" value="1" <?= $onlySaving ? 'checked' : '' ?>>
-            <span class="slider"></span>
-          </label>
-        </div>
+        <!-- NUEVO: para conservar orden al filtrar/buscar -->
+        <input type="hidden" name="sort" value="<?= h($sort) ?>">
+        <input type="hidden" name="dir" value="<?= h($dir) ?>">
 
         <input type="text" name="q" value="<?= h($q) ?>" placeholder="Buscar (OR)">
 
@@ -437,8 +595,8 @@ function cm3ToM3(float $cm3): float {
 
         <button type="submit" class="btn-search">Buscar</button>
 
-        <?php if ($q !== '' || $onlySaving): ?>
-          <a class="btn2" href="<?= h(urlWith(['q'=>null,'only_saving'=>null,'page'=>1])) ?>">Limpiar</a>
+        <?php if ($q !== '' || $onlySaving || $excludeAmazon || ($sort !== '' && $dir !== '')): ?>
+          <a class="btn2" href="<?= h(urlWith(['q'=>null,'only_saving'=>null,'exclude_amazon'=>null,'sort'=>null,'dir'=>null,'page'=>1])) ?>">Limpiar</a>
         <?php endif; ?>
       </form>
 
@@ -454,21 +612,22 @@ function cm3ToM3(float $cm3): float {
       <thead>
         <tr>
           <th class="col-toggle"></th>
-          <th>OR</th>
-          <th>PVN</th>
-          <th>Carga</th>
-          <th>Transportista</th>
 
-          <th class="nowrap num">Coste</th>
-          <th class="nowrap num">Ahorro</th>
+          <th><a class="thlink" href="<?= h(sortLink('reference', $sort, $dir)) ?>">OR <?= sortArrow('reference', $sort, $dir) ?></a></th>
+          <th><a class="thlink" href="<?= h(sortLink('pvn', $sort, $dir)) ?>">PVN <?= sortArrow('pvn', $sort, $dir) ?></a></th>
+          <th><a class="thlink" href="<?= h(sortLink('carga', $sort, $dir)) ?>">Carga <?= sortArrow('carga', $sort, $dir) ?></a></th>
+          <th><a class="thlink" href="<?= h(sortLink('transportista', $sort, $dir)) ?>">Transportista <?= sortArrow('transportista', $sort, $dir) ?></a></th>
 
-          <th>Canal</th>
-          <th>Market</th>
-          <th class="nowrap">País</th>
+          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('coste', $sort, $dir)) ?>">Coste <?= sortArrow('coste', $sort, $dir) ?></a></th>
+          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('ahorro', $sort, $dir)) ?>">Ahorro <?= sortArrow('ahorro', $sort, $dir) ?></a></th>
 
-          <th class="nowrap num">Peso</th>
-          <th class="nowrap num">Vol. (m³)</th>
-          <th class="nowrap num">Bultos</th>
+          <th><a class="thlink" href="<?= h(sortLink('canal', $sort, $dir)) ?>">Canal <?= sortArrow('canal', $sort, $dir) ?></a></th>
+          <th><a class="thlink" href="<?= h(sortLink('market', $sort, $dir)) ?>">Market <?= sortArrow('market', $sort, $dir) ?></a></th>
+          <th class="nowrap"><a class="thlink" href="<?= h(sortLink('pais', $sort, $dir)) ?>">País <?= sortArrow('pais', $sort, $dir) ?></a></th>
+
+          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('peso', $sort, $dir)) ?>">Peso <?= sortArrow('peso', $sort, $dir) ?></a></th>
+          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('vol_m3', $sort, $dir)) ?>">Vol. (m³) <?= sortArrow('vol_m3', $sort, $dir) ?></a></th>
+          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('bultos', $sort, $dir)) ?>">Bultos <?= sortArrow('bultos', $sort, $dir) ?></a></th>
         </tr>
       </thead>
       <tbody>
@@ -610,19 +769,19 @@ function cm3ToM3(float $cm3): float {
     toggleRow(targetId, btn);
   });
 
-  // Cuando cambian filtros, ir a página 1 y enviar
+  // Cuando cambian filtros, ir a página 1 y enviar (incluye controles fuera del <form>)
   var form = document.getElementById('filtersForm');
-  if (form) {
-    form.addEventListener('change', function (e) {
-      var el = e.target;
-      if (!el) return;
-      if (el.name === 'only_saving' || el.name === 'per_page') {
-        var page = form.querySelector('input[name="page"]');
-        if (page) page.value = '1';
-        form.submit();
-      }
-    });
-  }
+  document.addEventListener('change', function (e) {
+    if (!form) return;
+    var el = e.target;
+    if (!el) return;
+
+    if (el.name === 'only_saving' || el.name === 'per_page' || el.name === 'exclude_amazon') {
+      var page = form.querySelector('input[name="page"]');
+      if (page) page.value = '1';
+      form.submit();
+    }
+  });
 })();
 </script>
 
