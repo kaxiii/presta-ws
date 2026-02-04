@@ -107,6 +107,20 @@ details.expander-details[open] .orders{
     max-width:min(900px, calc(100vw - 140px));
 }
 
+.title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.date-form{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
 /* Para que el panel no se pegue al borde en pantallas pequeñas */
 @media (max-width: 720px){
     details.expander-details[open] .orders{

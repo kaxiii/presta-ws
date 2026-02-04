@@ -20,3 +20,5 @@ return [
   'MediaMarkt'    => '#e72828', 
   'Alcampo'       => '#ff6600',
 ];
+
+?>

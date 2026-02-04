@@ -11,6 +11,9 @@
  *   $marketplacesTopN = 8; // Top N + "Otros"
  *   $marketplacesPreferRevenue = false; // true: por importe_total_con_iva; false: por nº pedidos
  *
+ * (Opcional) CSS común para cards (si NO lo cargas ya en tu layout):
+ *   $cardsCommonCssHref = '/assets/css/cards-common.css';
+ *
  * Entradas aceptadas:
  *   - $ordersJson (recomendado)
  *   - $orders_json
@@ -23,6 +26,18 @@
  */
 
 if (!function_exists('render_marketplaces_card')) {
+
+  // ---------------------------
+  // Helpers CSS común (opcional)
+  // ---------------------------
+  function __mp_print_common_css_once(string $href): void
+  {
+    static $printed = false;
+    if ($printed) return;
+    $printed = true;
+
+    echo '<link rel="stylesheet" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">';
+  }
 
   // ---------------------------
   // Helpers colores (fijos)
@@ -137,10 +152,16 @@ if (!function_exists('render_marketplaces_card')) {
 
     $preferRevenue = (bool)($opts['preferRevenue'] ?? false); // modo inicial
 
+    // (Opcional) imprimir el CSS común una sola vez (si no lo carga tu layout)
+    $cssHref = $opts['cardsCssHref'] ?? ($GLOBALS['cardsCommonCssHref'] ?? '');
+    if (is_string($cssHref) && $cssHref !== '') {
+      __mp_print_common_css_once($cssHref);
+    }
+
     $decoded = json_decode($ordersJson, true);
 
     if (!is_array($decoded)) {
-      echo '<div style="border:1px solid #eee;border-radius:12px;padding:14px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;">';
+      echo '<div class="dash-card">';
       echo '<b>Error:</b> JSON inválido o no decodificable.';
       echo '</div>';
       return;
@@ -148,7 +169,7 @@ if (!function_exists('render_marketplaces_card')) {
 
     $data = $decoded['data'] ?? null;
     if (!is_array($data)) {
-      echo '<div style="border:1px solid #eee;border-radius:12px;padding:14px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;">';
+      echo '<div class="dash-card">';
       echo '<b>Error:</b> El JSON no contiene el array <code>data</code>.';
       echo '</div>';
       return;
@@ -186,9 +207,9 @@ if (!function_exists('render_marketplaces_card')) {
     $countTotalShown = array_sum($counts);
 
     if ($countTotalShown <= 0) {
-      echo '<div style="border:1px solid #ececec;border-radius:14px;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#fff;max-width:820px;">';
-      echo '<div style="font-weight:700;font-size:16px;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</div>';
-      echo '<div style="margin-top:8px;color:#666;font-size:13px;">No hay pedidos con marketplace válido (se han excluido los "desconocidos").</div>';
+      echo '<div class="dash-card">';
+      echo '<div class="dash-card__title">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</div>';
+      echo '<div class="dash-card__meta">No hay pedidos con marketplace válido (se han excluido los "desconocidos").</div>';
       echo '</div>';
       return;
     }
@@ -245,17 +266,17 @@ if (!function_exists('render_marketplaces_card')) {
 
     $payloadJs = json_encode($payload, JSON_UNESCAPED_UNICODE);
 
-    echo '<div id="' . htmlspecialchars($wrapId, ENT_QUOTES, 'UTF-8') . '" style="border:1px solid #ececec;border-radius:14px;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#fff;max-width:820px;">';
+    echo '<div id="' . htmlspecialchars($wrapId, ENT_QUOTES, 'UTF-8') . '" class="dash-card">';
 
     // Header + Switch
-    echo '  <div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">';
+    echo '  <div class="dash-card__header">';
     echo '    <div>';
-    echo '      <div style="font-weight:700;font-size:16px;line-height:1.2;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</div>';
-    echo '      <div style="margin-top:6px;color:#555;font-size:13px;">';
-    echo '        <span style="margin-right:10px;"><b>Total pedidos:</b> ' . number_format($countTotalShown, 0, ',', '.') . '</span>';
-    echo '        <span style="margin-right:10px;"><b>Importe total:</b> ' . number_format($sumRevenue, 2, ',', '.') . ' €</span>';
+    echo '      <div class="dash-card__title">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</div>';
+    echo '      <div class="dash-card__meta">';
+    echo '        <span><b>Total pedidos:</b> ' . number_format($countTotalShown, 0, ',', '.') . '</span>';
+    echo '        <span><b>Importe total:</b> ' . number_format($sumRevenue, 2, ',', '.') . ' €</span>';
     if ($from !== '') {
-      echo '      <span style="margin-right:10px;"><b>Desde:</b> ' . htmlspecialchars($from, ENT_QUOTES, 'UTF-8') . '</span>';
+      echo '      <span><b>Desde:</b> ' . htmlspecialchars($from, ENT_QUOTES, 'UTF-8') . '</span>';
     }
     if ($generated !== '') {
       echo '      <span><b>Generado:</b> ' . htmlspecialchars($generated, ENT_QUOTES, 'UTF-8') . '</span>';
@@ -263,41 +284,41 @@ if (!function_exists('render_marketplaces_card')) {
     echo '      </div>';
     echo '    </div>';
 
-    echo '    <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;">';
-    echo '      <span style="font-size:12px;color:#666;">Pedidos</span>';
-    echo '      <label style="display:inline-flex;align-items:center;cursor:pointer;user-select:none;">';
-    echo '        <input id="' . htmlspecialchars($switchId, ENT_QUOTES, 'UTF-8') . '" type="checkbox" style="display:none;">';
-    echo '        <span style="width:44px;height:24px;border-radius:999px;background:#eaeaea;position:relative;display:inline-block;border:1px solid #ddd;">';
-    echo '          <span data-knob style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid #ddd;transition:all .18s ease;"></span>';
+    echo '    <div class="dash-card__right">';
+    echo '      <span class="dash-card__hint">Pedidos</span>';
+    echo '      <label class="dash-switch">';
+    echo '        <input id="' . htmlspecialchars($switchId, ENT_QUOTES, 'UTF-8') . '" class="dash-switch__input" type="checkbox">';
+    echo '        <span class="dash-switch__track">';
+    echo '          <span class="dash-switch__knob"></span>';
     echo '        </span>';
     echo '      </label>';
-    echo '      <span style="font-size:12px;color:#666;">Importe</span>';
+    echo '      <span class="dash-card__hint">Importe</span>';
 
-    echo '      <span id="' . htmlspecialchars($badgeId, ENT_QUOTES, 'UTF-8') . '" style="font-size:12px;color:#666;border:1px solid #eee;border-radius:999px;padding:6px 10px;">';
+    echo '      <span id="' . htmlspecialchars($badgeId, ENT_QUOTES, 'UTF-8') . '" class="dash-card__badge">';
     echo         ($preferRevenue ? 'Tarta por importe (€)' : 'Tarta por nº pedidos');
     echo '      </span>';
     echo '    </div>';
 
     echo '  </div>';
 
-    echo '  <div style="display:grid;grid-template-columns: minmax(260px, 360px) 1fr; gap:16px; margin-top:14px; align-items:start;">';
-    echo '    <div style="border:1px solid #f0f0f0;border-radius:12px;padding:12px;">';
-    echo '      <div style="height:320px;">';
-    echo '        <canvas id="' . htmlspecialchars($canvasId, ENT_QUOTES, 'UTF-8') . '" width="320" height="320" style="max-width:100%;"></canvas>';
+    echo '  <div class="dash-card__grid">';
+    echo '    <div class="dash-panel">';
+    echo '      <div class="dash-chart">';
+    echo '        <canvas id="' . htmlspecialchars($canvasId, ENT_QUOTES, 'UTF-8') . '" width="320" height="320"></canvas>';
     echo '      </div>';
     echo '    </div>';
 
     // Tabla (Marketplace / Pedidos / Importe / €/pedido / %)
-    echo '    <div style="border:1px solid #f0f0f0;border-radius:12px;padding:12px;overflow:auto;">';
-    echo '      <div style="font-weight:700;font-size:14px;margin-bottom:8px;">Ranking</div>';
-    echo '      <table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    echo '    <div class="dash-panel dash-panel--scroll">';
+    echo '      <div class="dash-table__title">Ranking</div>';
+    echo '      <table class="dash-table">';
     echo '        <thead>';
     echo '          <tr>';
-    echo '            <th style="text-align:left;border-bottom:1px solid #eee;padding:8px 6px;">Marketplace</th>';
-    echo '            <th style="text-align:right;border-bottom:1px solid #eee;padding:8px 6px;">Pedidos</th>';
-    echo '            <th style="text-align:right;border-bottom:1px solid #eee;padding:8px 6px;">Importe (€)</th>';
-    echo '            <th style="text-align:right;border-bottom:1px solid #eee;padding:8px 6px;">€/pedido</th>';
-    echo '            <th style="text-align:right;border-bottom:1px solid #eee;padding:8px 6px;">%</th>';
+    echo '            <th>Marketplace</th>';
+    echo '            <th class="is-right">Pedidos</th>';
+    echo '            <th class="is-right">Importe (€)</th>';
+    echo '            <th class="is-right">€/pedido</th>';
+    echo '            <th class="is-right">%</th>';
     echo '          </tr>';
     echo '        </thead>';
     echo '        <tbody id="' . htmlspecialchars($tableId, ENT_QUOTES, 'UTF-8') . '"></tbody>';
@@ -350,7 +371,6 @@ if (!function_exists('render_marketplaces_card')) {
         var badge = document.getElementById(badgeId);
         var sw = document.getElementById(switchId);
         var tableBody = document.getElementById(tableId);
-        var knob = wrap.querySelector('[data-knob]');
 
         function formatNumber(n, decimals) {
           try {
@@ -373,9 +393,8 @@ if (!function_exists('render_marketplaces_card')) {
         }
 
         function setSwitchVisual(isRevenue) {
-          if (!knob) return;
-          knob.style.left = isRevenue ? '22px' : '2px';
-          knob.parentElement.style.background = isRevenue ? '#dff3ff' : '#eaeaea';
+          // CSS: .dash-card.is-revenue ...
+          wrap.classList.toggle('is-revenue', !!isRevenue);
         }
 
         function getLabels(mode) { return (payload[mode].labels || []).slice(); }
@@ -404,11 +423,11 @@ if (!function_exists('render_marketplaces_card')) {
             }
 
             html += '<tr>';
-            html += '  <td style="padding:8px 6px;border-bottom:1px solid #fafafa;">' + escapeHtml(name) + '</td>';
-            html += '  <td style="padding:8px 6px;border-bottom:1px solid #fafafa;text-align:right;">' + formatNumber(c, 0) + '</td>';
-            html += '  <td style="padding:8px 6px;border-bottom:1px solid #fafafa;text-align:right;">' + formatNumber(rev, 2) + '</td>';
-            html += '  <td style="padding:8px 6px;border-bottom:1px solid #fafafa;text-align:right;">' + formatNumber(eurPerOrder, 2) + '</td>';
-            html += '  <td style="padding:8px 6px;border-bottom:1px solid #fafafa;text-align:right;">' + formatNumber(pct, 1) + '%</td>';
+            html += '  <td>' + escapeHtml(name) + '</td>';
+            html += '  <td class="is-right">' + formatNumber(c, 0) + '</td>';
+            html += '  <td class="is-right">' + formatNumber(rev, 2) + '</td>';
+            html += '  <td class="is-right">' + formatNumber(eurPerOrder, 2) + '</td>';
+            html += '  <td class="is-right">' + formatNumber(pct, 1) + '%</td>';
             html += '</tr>';
           }
           return html;
@@ -513,13 +532,15 @@ $__topN  = $marketplacesTopN ?? 8;
 $__preferRevenue = $marketplacesPreferRevenue ?? false;
 
 if ($__ordersJson === '') {
-  echo '<div style="border:1px solid #eee;border-radius:12px;padding:14px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;">';
+  echo '<div class="dash-card">';
   echo '<b>card-marketplaces.php:</b> No se recibió JSON. Define <code>$ordersJson</code> antes de incluir el archivo.';
   echo '</div>';
 } else {
   render_marketplaces_card($__ordersJson, [
     'title' => $__title,
     'topN' => $__topN,
-    'preferRevenue' => $__preferRevenue
+    'preferRevenue' => $__preferRevenue,
+    // si quieres forzar aquí la ruta del CSS:
+    // 'cardsCssHref' => '/assets/css/cards-common.css',
   ]);
 }

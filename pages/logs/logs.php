@@ -5,12 +5,23 @@ date_default_timezone_set('Europe/Madrid');
 
 /**
  * ver-log-cron.php
- * Lee el log del día actual: cron-master-historial-YYYY-MM-DD.log
+ * Lee el log del día seleccionado (por defecto hoy): cron-master-historial-YYYY-MM-DD.log
  * y muestra cada ejecución en HTML con expandir pedidos importados.
  */
 
 $LOG_DIR = '../../cron/logs';
-$today = date('Y-m-d');
+
+/* =========================
+   FECHA SELECCIONABLE (?date=YYYY-MM-DD)
+========================= */
+$selectedDate = $_GET['date'] ?? date('Y-m-d');
+
+// valida formato YYYY-MM-DD
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate)) {
+    $selectedDate = date('Y-m-d');
+}
+
+$today = $selectedDate;
 $logFile = $LOG_DIR . "/cron-master-historial-{$today}.log";
 
 $errors = [];
@@ -111,7 +122,7 @@ function num(float $v, int $dec = 2): string
    CARGA LOG
 ========================= */
 if (!is_file($logFile)) {
-    $errors[] = "No existe el log de hoy: " . $logFile;
+    $errors[] = "No existe el log de la fecha seleccionada: " . $logFile;
 } elseif (!is_readable($logFile)) {
     $errors[] = "No puedo leer el log (permisos): " . $logFile;
 } else {
@@ -167,10 +178,44 @@ foreach ($entries as $e) {
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Log cron master historial (<?= h($today) ?>)</title>
     <link rel="stylesheet" href="logs.css">
+
+    <!-- CSS mínimo para alinear título + selector -->
+    <style>
+        .title-row{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            margin-bottom:12px;
+        }
+        .date-form{
+            display:flex;
+            align-items:center;
+            gap:8px;
+            white-space:nowrap;
+        }
+    </style>
 </head>
 <body>
 
-<h2>Log cron master historial <span class="muted">(<?= h($today) ?>)</span></h2>
+<div class="title-row">
+    <h2 style="margin:0;">
+        Log cron master historial <span class="muted">(<?= h($today) ?>)</span>
+    </h2>
+
+    <form method="get" class="date-form">
+        <label class="small muted" for="date" style="margin-right:8px;">Fecha</label>
+        <input
+            type="date"
+            id="date"
+            name="date"
+            value="<?= h($today) ?>"
+            max="<?= h(date('Y-m-d')) ?>"
+            onchange="this.form.submit()"
+        >
+        <noscript><button type="submit">Ver</button></noscript>
+    </form>
+</div>
 
 <div class="top">
     <span class="badge"><strong>Archivo:</strong> <span class="raw"><?= h($logFile) ?></span></span>
@@ -213,7 +258,7 @@ foreach ($entries as $e) {
         </tr>
         </thead>
         <tbody>
-        <?php 
+        <?php
             $N = count($entries);
             foreach ($entries as $idx => $e): ?>
             <?php
