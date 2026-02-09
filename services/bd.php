@@ -25,7 +25,6 @@ function db(): PDO
         return $pdo;
     }
 
-    // Asumimos que .env está en la raíz del proyecto
     $envPath = dirname(__DIR__) . '/.env';
     $vars = loadEnvFile($envPath);
 
@@ -56,7 +55,6 @@ function db(): PDO
     try {
         $pdo = new PDO($dsn, $user, $pass, $options);
     } catch (PDOException $e) {
-        // No metas el password en mensajes de error
         throw new RuntimeException("Error conectando a MySQL ({$host}:{$port}/{$name}): " . $e->getMessage());
     }
 
