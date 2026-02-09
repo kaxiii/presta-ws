@@ -31,13 +31,17 @@ $ordersJson = leerJsonBdRaw('pedidos');
 
 // Opcionales:
 $marketplacesCardTitle = "Marketplaces";
-$marketplacesTopN = 13;
+$marketplacesTopN = 12;
 $marketplacesPreferRevenue = false;
+
+$provincesCardTitle = 'Pedidos por provincia / región';
+$provincesTopN = 25;
 
 echo '<div class="cards-grid">';
 
 include __DIR__ . "/cards/marketplaces/card-marketplaces.php";
 include __DIR__ . "/cards/countries/card-countries.php";
+include __DIR__ . "/cards/provinces/card-provinces.php";
 
 echo '</div>';
 ?>

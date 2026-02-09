@@ -527,7 +527,7 @@ $__ordersJson =
   ((isset($json) && is_string($json)) ? $json :
   ((isset($_POST['ordersJson']) && is_string($_POST['ordersJson'])) ? $_POST['ordersJson'] : '')));
 
-$__title = $marketplacesCardTitle ?? 'Pedidos por marketplace';
+$__title = $marketplacesCardTitle ?? 'MARKETPLACES';
 $__topN  = $marketplacesTopN ?? 8;
 $__preferRevenue = $marketplacesPreferRevenue ?? false;
 
