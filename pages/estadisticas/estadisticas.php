@@ -30,7 +30,7 @@ include __DIR__ . '/../../functions/leer-json.php';
 $ordersJson = leerJsonBdRaw('pedidos');
 
 // Opcionales:
-$marketplacesCardTitle = "Marketplaces";
+$marketplacesCardTitle = "MARKETPLACES";
 $marketplacesTopN = 12;
 $marketplacesPreferRevenue = false;
 
@@ -41,6 +41,7 @@ echo '<div class="cards-grid">';
 
 include __DIR__ . "/cards/marketplaces/card-marketplaces.php";
 include __DIR__ . "/cards/countries/card-countries.php";
+include __DIR__ . "/cards/transportistas/card-transportistas.php";
 include __DIR__ . "/cards/provinces/card-provinces.php";
 
 echo '</div>';

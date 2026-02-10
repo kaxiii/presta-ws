@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'CTT'       => '#C60B1E', 
-    'ENVIALIA'  => '#006600',
-    'UPS'       => '#0055A4',
-    'DACHSER'   => '#009246',
+    'CTT'       => '#E00024',
+    'ENVIALIA'  => '#3f0e9b', 
+    'UPS'       => '#4d291f',
+    'DACHSER'   => '#FBBA00',
     'TXT'       => '#000000',
 ];

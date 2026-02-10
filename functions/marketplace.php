@@ -99,6 +99,11 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
             $tipo = 'Estandar';
             break;
 
+        case $contains($pay, ['Castorama']):
+            $marketplace = 'Castorama';
+            $tipo = 'Estandar';
+            break;
+
         case $contains($pay, ['PayPal', 'Bizum', 'Redsys', 'transferencia', 'transferência']):
             $marketplace = 'O91';
             $tipo = 'Estandar';
