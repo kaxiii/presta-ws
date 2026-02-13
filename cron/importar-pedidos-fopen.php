@@ -151,8 +151,8 @@ try {
     $existing = [];
     foreach (chunk($refs, 200) as $batch) {
         $placeholders = implode(',', array_fill(0, count($batch), '?'));
-        $sql = "SELECT reference FROM his_envios WHERE reference IN ($placeholders)";
-        $stmt = $pdo->prepare($sql);
+        //$sql = "SELECT reference FROM his_envios WHERE reference IN ($placeholders)";
+        $sql = "SELECT reference FROM TR_his_envios WHERE reference IN ($placeholders)";
         $stmt->execute($batch);
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $r) {
             $existing[(string)$r] = true;
@@ -160,8 +160,15 @@ try {
     }
 
     // 5) Insertar los que faltan
+    // $insertSql = "
+    //     INSERT INTO his_envios
+    //         (reference, canal, date_prestashop, cod_pais, poblacion, cp, importe_total_con_iva, marketplace, marketplace_tipo)
+    //     VALUES
+    //         (:reference, :canal, :date_prestashop, :cod_pais, :poblacion, :cp, :importe_total_con_iva, :marketplace, :marketplace_tipo)
+    // ";
+
     $insertSql = "
-        INSERT INTO his_envios
+        INSERT INTO TR_his_envios
             (reference, canal, date_prestashop, cod_pais, poblacion, cp, importe_total_con_iva, marketplace, marketplace_tipo)
         VALUES
             (:reference, :canal, :date_prestashop, :cod_pais, :poblacion, :cp, :importe_total_con_iva, :marketplace, :marketplace_tipo)
