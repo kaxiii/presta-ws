@@ -196,16 +196,8 @@ try {
         $importe = $o['total_paid_tax_incl'] ?? null;
 
         // Marketplace / tipo
-        $stateName = $o['current_state_name']
-            ?? $o['state_name']
-            ?? ($o['current_state']['name'] ?? null)
-            ?? $o['order_state']
-            ?? null;
-
-        $payment = $o['payment']
-            ?? $o['payment_method']
-            ?? $o['payment_module']
-            ?? null;
+        $stateName = $o['current_state']['name'] ?? null;
+        $payment   = $o['payment'] ?? null;
 
         [$marketplace, $marketplaceTipo] = detectarMarketplaceYTipo(
             is_string($stateName) ? $stateName : null,
