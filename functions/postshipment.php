@@ -1,6 +1,8 @@
 <?php
 
 require_once __DIR__ . '/../services/bd-orion.php';
+require_once __DIR__ . '/../services/bd-analitica.php';
+
 
 function getPostshipmentDataAsJson(): string
 {
@@ -165,7 +167,7 @@ function readPostshipmentJsonFile(string $filename = 'postshipment.json', string
 
 function syncRegistrosPostshipment($jsonData) {
     try {
-        $pdo = db_orion();
+        $pdo = db_analitica();
 
 
         // Decodificar el JSON si es string
