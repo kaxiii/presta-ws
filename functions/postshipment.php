@@ -163,4 +163,113 @@ function readPostshipmentJsonFile(string $filename = 'postshipment.json', string
     return $result;
 }
 
+function syncRegistrosPostshipment($jsonData) {
+    try {
+        $pdo = db_orion();
+
+
+        // Decodificar el JSON si es string
+        if (is_string($jsonData)) {
+            $registros = json_decode($jsonData, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception("Error decodificando JSON: " . json_last_error_msg());
+            }
+        } else {
+            $registros = $jsonData;
+        }
+
+        // Asegurar que es un array
+        if (!is_array($registros)) {
+            $registros = [$registros];
+        }
+
+        $registrosInsertados = 0;
+        $registrosExistentes = 0;
+        $errores = [];
+
+        // Preparar consulta de verificación
+        $checkStmt = $pdo->prepare("
+            SELECT COUNT(*) as total 
+            FROM [Analitica].[dbo].[TR_his_postshipment] 
+            WHERE pvn = :pvn OR reference = :reference
+        ");
+
+        // Preparar consulta de inserción
+        $insertStmt = $pdo->prepare("
+            INSERT INTO [Analitica].[dbo].[TR_his_postshipment] (
+                date_add, pvn, reference, transportista, servicio, 
+                bulto, coste_bruto, coste_otros, peso_cinta, 
+                peso_vol_cinta, peso, peso_vol, date_shipped, 
+                date_delivered, estado_final, zona_logistica, tracking
+            ) VALUES (
+                :date_add, :pvn, :reference, :transportista, :servicio,
+                :bulto, :coste_bruto, :coste_otros, :peso_cinta,
+                :peso_vol_cinta, :peso, :peso_vol, :date_shipped,
+                :date_delivered, :estado_final, :zona_logistica, :tracking
+            )
+        ");
+
+        // Procesar cada registro
+        foreach ($registros as $registro) {
+            try {
+                // Verificar si existe el registro
+                $checkStmt->execute([
+                    ':pvn' => $registro['pvn'] ?? null,
+                    ':reference' => $registro['reference'] ?? $registro['pv_or'] ?? null
+                ]);
+                
+                $result = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($result['total'] == 0) {
+                    // No existe, proceder con inserción
+                    $params = [
+                        ':date_add' => $registro['date_add'] ?? date('Y-m-d H:i:s'),
+                        ':pvn' => $registro['pvn'] ?? null,
+                        ':reference' => $registro['reference'] ?? $registro['pv_or'] ?? null,
+                        ':transportista' => $registro['transportista'] ?? null,
+                        ':servicio' => $registro['servicio'] ?? null,
+                        ':bulto' => $registro['bulto'] ?? 0,
+                        ':coste_bruto' => $registro['coste_bruto'] ?? 0,
+                        ':coste_otros' => $registro['coste_otros'] ?? 0,
+                        ':peso_cinta' => $registro['peso_cinta'] ?? 0,
+                        ':peso_vol_cinta' => $registro['peso_vol_cinta'] ?? 0,
+                        ':peso' => $registro['peso'] ?? 0,
+                        ':peso_vol' => $registro['peso_vol'] ?? 0,
+                        ':date_shipped' => $registro['date_shipped'] ?? null,
+                        ':date_delivered' => $registro['date_delivered'] ?? null,
+                        ':estado_final' => $registro['estado_final'] ?? null,
+                        ':zona_logistica' => $registro['zona_logistica'] ?? null,
+                        ':tracking' => $registro['tracking'] ?? null
+                    ];
+                    
+                    if ($insertStmt->execute($params)) {
+                        $registrosInsertados++;
+                    } else {
+                        throw new Exception("Error al insertar registro con PVN: " . ($registro['pvn'] ?? 'desconocido'));
+                    }
+                } else {
+                    $registrosExistentes++;
+                }
+                
+            } catch (Exception $e) {
+                $errores[] = "Error en registro " . ($registro['pvn'] ?? 'desconocido') . ": " . $e->getMessage();
+            }
+        }
+
+        return [
+            'success' => true,
+            'insertados' => $registrosInsertados,
+            'existentes' => $registrosExistentes,
+            'total_procesados' => count($registros),
+            'errores' => $errores
+        ];
+
+    } catch (Exception $e) {
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
+    }
+}
+
 ?>
