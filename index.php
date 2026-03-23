@@ -28,7 +28,7 @@
 
       <section class="panel bg3 dark">
         <div class="vtext">E&#10;S&#10;T&#10;A&#10;D&#10;I&#10;S&#10;T&#10;I&#10;C&#10;A&#10;S</div>
-        <a href="">ESTADISTICAS</a>
+        <a href="pages/estadisticas/estadisticas.php">ESTADISTICAS</a>
       </section>
 
       <section class="panel bg4 light">

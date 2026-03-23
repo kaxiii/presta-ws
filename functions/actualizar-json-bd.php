@@ -37,7 +37,7 @@ function actualizarJsonBd(): int {
         // Fecha desde (últimos N meses)
         $from = (new DateTimeImmutable('now'))->modify("-{$months} months")->format('Y-m-d H:i:s');
 
-        $pdo = db();
+        $pdo = dbAnalitica();
 
         // Medir SOLO el tiempo de la consulta
         $queryStart = microtime(true);

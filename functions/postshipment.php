@@ -19,7 +19,7 @@ function getPostshipmentDataAsJson(): string
         }, $columns));
         
         // Consultar todos los registros
-        $query = "SELECT $selectColumns FROM ng_his_postshipment ORDER BY id DESC";
+        $query = "SELECT $selectColumns FROM ng_his_postshipment  WHERE date_shipped >= '2026-01-01' ORDER BY id DESC";
         $stmt = $pdo->query($query);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         

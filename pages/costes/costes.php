@@ -54,8 +54,6 @@ $SORTABLE = [
     'transportista',
     'coste',
     'ahorro',
-    'importe_total',      // NUEVO
-    'pct_coste',          // NUEVO
     'canal',
     'market',
     'pais',
@@ -339,14 +337,6 @@ foreach ($groups as $g) {
     $volRaw  = is_array($agg) ? (float)($agg['volumen'] ?? 0.0) : 0.0;
     $volM3   = cm3ToM3($volRaw);
 
-    // NUEVO: importe total con iva + % coste
-    $importeTotalSort = is_array($agg) ? (float)($agg['importe_total_con_iva'] ?? 0.0) : 0.0;
-
-    $pctCosteSort = null;
-    if ($importeTotalSort > 0 && $coste !== null) {
-        $pctCosteSort = ((float)$coste / $importeTotalSort) * 100.0;
-    }
-
     // Campos de display
     $g['_mp'] = $mp;
     $g['_assignedCarrier'] = $assignedCarrier;
@@ -360,8 +350,6 @@ foreach ($groups as $g) {
     $g['_sort_transportista'] = (string)$assignedCarrier;
     $g['_sort_coste']         = ($coste !== null) ? (float)$coste : null;
     $g['_sort_ahorro']        = ($ahorro !== null) ? (float)$ahorro : null;
-    $g['_sort_importe_total'] = $importeTotalSort > 0 ? $importeTotalSort : null; // NUEVO
-    $g['_sort_pct_coste']     = $pctCosteSort;                                   // NUEVO
     $g['_sort_canal']         = $canalSort;
     $g['_sort_market']        = (string)$mp;
     $g['_sort_pais']          = $paisSort;
@@ -384,8 +372,6 @@ if ($sort !== '' && $dir !== '') {
         'transportista' => '_sort_transportista',
         'coste'         => '_sort_coste',
         'ahorro'        => '_sort_ahorro',
-        'importe_total' => '_sort_importe_total', // NUEVO
-        'pct_coste'     => '_sort_pct_coste',     // NUEVO
         'canal'         => '_sort_canal',
         'market'        => '_sort_market',
         'pais'          => '_sort_pais',
@@ -463,13 +449,6 @@ if ($downloadCsv) {
 
         $bultos  = is_array($agg) ? (float)($agg['bultos'] ?? 0.0) : 0.0;
 
-        // NUEVO: importe total + % coste
-        $importeTotal = is_array($agg) ? (float)($agg['importe_total_con_iva'] ?? 0.0) : 0.0;
-        $pctCoste = '';
-        if ($importeTotal > 0 && $coste !== null) {
-            $pctCoste = number_format(((float)$coste / $importeTotal) * 100.0, 2, '.', '');
-        }
-
         $rows[] = [
             'or' => $ref,
             'pvn' => $pvn,
@@ -477,8 +456,6 @@ if ($downloadCsv) {
             'transportista' => $assignedCarrier,
             'coste' => ($coste !== null) ? number_format((float)$coste, 2, '.', '') : '',
             'ahorro' => ($ahorro !== null) ? number_format((float)$ahorro, 2, '.', '') : '',
-            'importe_total_con_iva' => $importeTotal > 0 ? number_format($importeTotal, 2, '.', '') : '',
-            'pct_coste' => $pctCoste,
             'canal' => $canal,
             'market' => $mp,
             'pais' => $codPais,
@@ -495,8 +472,6 @@ if ($downloadCsv) {
         'transportista' => 'Transportista',
         'coste' => 'Coste',
         'ahorro' => 'Ahorro',
-        'importe_total_con_iva' => 'Importe (IVA)',
-        'pct_coste' => '% Coste',
         'canal' => 'Canal',
         'market' => 'Market',
         'pais' => 'País',
@@ -518,7 +493,7 @@ $rowsPage = array_slice($filtered, $offset, $perPage);
 
 $title = "COSTES ENVIOS";
 
-$MAIN_COLS = 15; // toggle + OR + PVN + Carga + Transportista + Coste + Ahorro + Importe + %Coste + Canal + Market + País + Peso + Vol(m3) + Bultos
+$MAIN_COLS = 13; // toggle + OR + PVN + Carga + Transportista + Coste + Ahorro + Canal + Market + País + Peso + Vol(m3) + Bultos
 
 $prev = $page - 1;
 $next = $page + 1;
@@ -646,10 +621,6 @@ $next = $page + 1;
           <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('coste', $sort, $dir)) ?>">Coste <?= sortArrow('coste', $sort, $dir) ?></a></th>
           <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('ahorro', $sort, $dir)) ?>">Ahorro <?= sortArrow('ahorro', $sort, $dir) ?></a></th>
 
-          <!-- NUEVO -->
-          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('importe_total', $sort, $dir)) ?>">Importe (IVA) <?= sortArrow('importe_total', $sort, $dir) ?></a></th>
-          <th class="nowrap num"><a class="thlink" href="<?= h(sortLink('pct_coste', $sort, $dir)) ?>">% Coste <?= sortArrow('pct_coste', $sort, $dir) ?></a></th>
-
           <th><a class="thlink" href="<?= h(sortLink('canal', $sort, $dir)) ?>">Canal <?= sortArrow('canal', $sort, $dir) ?></a></th>
           <th><a class="thlink" href="<?= h(sortLink('market', $sort, $dir)) ?>">Market <?= sortArrow('market', $sort, $dir) ?></a></th>
           <th class="nowrap"><a class="thlink" href="<?= h(sortLink('pais', $sort, $dir)) ?>">País <?= sortArrow('pais', $sort, $dir) ?></a></th>
@@ -690,13 +661,6 @@ $next = $page + 1;
 
               $bultos  = is_array($agg) ? (float)($agg['bultos'] ?? 0.0) : 0.0;
 
-              // NUEVO: importe total + % coste
-              $importeTotal = is_array($agg) ? (float)($agg['importe_total_con_iva'] ?? 0.0) : 0.0;
-              $pctCoste = null;
-              if ($importeTotal > 0 && $coste !== null) {
-                  $pctCoste = ((float)$coste / $importeTotal) * 100.0;
-              }
-
               $innerCols = [];
               if (isset($items[0]) && is_array($items[0])) $innerCols = array_keys($items[0]);
 
@@ -725,10 +689,6 @@ $next = $page + 1;
 
               <td class="num"><?= ($coste !== null) ? h(number_format((float)$coste, 2, '.', '')) : $dash ?></td>
               <td class="num"><?= ($ahorro !== null) ? h(number_format((float)$ahorro, 2, '.', '')) : $dash ?></td>
-
-              <!-- NUEVO -->
-              <td class="num"><?= $importeTotal > 0 ? h(number_format($importeTotal, 2, '.', '')) : $dash ?></td>
-              <td class="num"><?= ($pctCoste !== null) ? h(number_format($pctCoste, 2, '.', '')) . ' %' : $dash ?></td>
 
               <td class="nowrap"><?= $canal !== '' ? h($canal) : $dash ?></td>
               <td class="nowrap"><?= $mp !== '' ? h($mp) : $dash ?></td>

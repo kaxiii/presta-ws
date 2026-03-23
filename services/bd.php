@@ -18,7 +18,7 @@ require_once __DIR__ . '/env.php';
  * Opcional:
  *   DB_PDO_PERSISTENT=false
  */
-function db2(): PDO
+function db(): PDO
 {
     static $pdo = null;
     if ($pdo instanceof PDO) {
@@ -74,7 +74,7 @@ function db2(): PDO
  *   ANALITICA_DB_TRUST_CERT="true"        // true/false
  *   ANALITICA_PDO_PERSISTENT="false"      // opcional
  */
-function db(): PDO
+function dbAnalitica(): PDO
 {
     static $pdo = null;
     if ($pdo instanceof PDO) {
@@ -114,7 +114,6 @@ function db(): PDO
 
     return $pdo;
 }
-
 
 
 

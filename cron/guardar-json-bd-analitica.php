@@ -38,15 +38,16 @@ try {
     // Fecha desde (últimos N meses)
     $from = (new DateTimeImmutable('now'))->modify("-{$months} months")->format('Y-m-d H:i:s');
 
-    $pdo = db();
+    $pdo = dbAnalitica();
 
     // Medir SOLO el tiempo de la consulta
     $queryStart = microtime(true);
 
-    $sql = "SELECT * FROM `{$table}` WHERE `{$dateField}` >= :from ORDER BY `{$dateField}` DESC";
+    // SQL Server: usar corchetes y placeholder posicional
+    $sql = "SELECT * FROM [{$table}] WHERE [{$dateField}] >= ? ORDER BY [{$dateField}] DESC";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':from' => $from]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute([$from]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);  
 
     $querySeconds = microtime(true) - $queryStart;
 

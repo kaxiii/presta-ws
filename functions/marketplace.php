@@ -36,6 +36,7 @@ function detectarMarketplaceYTipo(?string $currentStateName, ?string $payment): 
                 $tipo = 'PRIME';
             } else {
                 $tipo = 'Estandar';
+                //$tipo = 'PRIME';
             }
             break;
 

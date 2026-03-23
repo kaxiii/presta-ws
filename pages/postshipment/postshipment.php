@@ -26,8 +26,6 @@ if ($filterDateTo   !== '' && !preg_match($rxDate, $filterDateTo))   $filterDate
 /* =========================
    Cargar datos del JSON
    ========================= */
-
-// savePostshipmentDataToJsonFile();
 $jsonData = readPostshipmentJsonFile('postshipment.json', 'data');
 
 if (!$jsonData['success']) {
