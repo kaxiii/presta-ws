@@ -2,3 +2,5 @@
 .json
 .log
 .txt
+*.log
+*.json
